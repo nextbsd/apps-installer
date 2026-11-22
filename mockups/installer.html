@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Installer · NextBSD</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  color-scheme: dark;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --plane:#16161b; --control:#26262d; --raised:#33333a; --bevel:#55555f; --shadow:#0a0a0a;
+  --text:#f5f5f7; --text-2:#b8b8c0; --text-3:#8b8b94;
+  --accent:#00d4ff; --sel:#0a5fd1; --sel-text:#fff; --field:#000; --frame:#000;
+  --desk:#000; --menubar:rgba(22,22,27,.8); --dock:rgba(31,31,31,.55);
+  --link:#5fb4ff; --ok:#6fd38a; --warn:#ffb454; --err:#ff6b6b;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--desk);color:var(--text)}
+body{font:13px/1.4 var(--font);-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+.vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+[hidden]{display:none!important}
+
+/* ---------- desktop ---------- */
+.desk{
+  min-height:100vh;min-height:100dvh;
+  padding:0 max(16px, env(safe-area-inset-right, 0px)) 96px max(16px, env(safe-area-inset-left, 0px));
+  background:var(--desk);display:flex;flex-direction:column;align-items:center;
+}
+.menubar{
+  position:sticky;top:0;z-index:30;align-self:stretch;margin:0 calc(-1 * max(16px, env(safe-area-inset-left, 0px)));
+  height:24px;display:flex;align-items:center;gap:16px;padding:0 14px;
+  background:var(--menubar);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+  font-size:13px;color:var(--text);user-select:none
+}
+.menubar b{font-weight:700}
+.menubar .menus{display:flex;gap:2px;align-items:center}
+.menubar .mtop{padding:2px 8px}
+.menubar .sp{flex:1}
+.menubar .st{display:flex;align-items:center;gap:14px}
+.menubar .st svg{width:15px;height:15px;display:block;fill:none;stroke:var(--text);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.menubar #mb-extras{display:flex;gap:14px;align-items:center}
+.menubar .clock{font-variant-numeric:tabular-nums}
+
+.dock{position:fixed;left:50%;bottom:8px;transform:translateX(-50%);z-index:30;display:flex;align-items:flex-end;gap:6px;padding:6px 8px;
+  background:var(--dock);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border-radius:16px;border:1px solid rgba(255,255,255,.08)}
+.dock .tile{position:relative;width:48px;height:48px;display:grid;place-items:center}
+.dock .tile.on::after{content:"";position:absolute;bottom:-4px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--text)}
+.dock .sepr{width:1px;align-self:stretch;margin:4px 4px;background:rgba(255,255,255,.28)}
+
+/* ---------- window ---------- */
+.win{
+  position:relative;margin-top:7vh;width:min(560px,100%);
+  display:flex;flex-direction:column;background:var(--plane);
+  border:1px solid var(--frame);box-shadow:0 16px 48px rgba(0,0,0,.7), 0 0 0 1px #2a2a30;
+}
+.titlebar{height:22px;flex:none;display:flex;align-items:center;justify-content:space-between;position:relative;padding:0 3px;background:var(--frame);user-select:none}
+.titlebar .wbtn{width:18px;height:18px;padding:0;border:0;background-color:transparent;background-size:18px 18px;background-repeat:no-repeat;cursor:pointer;position:relative;z-index:1}
+.titlebar .wbtn[disabled]{opacity:.35;cursor:default}
+.titlebar .wspace{width:18px;height:18px}
+.wbtn.mini{background-image:url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAX0lEQVR42mMIDY3/Ty3MxcX1nwHEMDa2ogoeNRCBOzv7/m/ZsgMvBqkh2kCQhq9fv+PFIDUkGzhv3uL/xcWVKBgkRraBIAPQ5UBiowYOYKRQLdlQPWGPljakGQgiqIkByUcIBbTD8bAAAAAASUVORK5CYII=")}
+.wbtn.mini:not([disabled]):hover,.wbtn.mini:not([disabled]):active{background-image:url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAX0lEQVR42mPg4uL6Ty0cGhr/nwHEMDa2ogoeNRCBOzv7/m/ZsgMvBqkh2kCQhq9fv+PFIDUkGzhv3uL/xcWVKBgkRraBIAPQ5UBiowYOYKRQLdlQPWGPljakGQgiqIkBi0MJ27P6wEwAAAAASUVORK5CYII=")}
+.wbtn.close{background-image:url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAZ0lEQVR42mMIDY3/Ty3MxcX1nwHEMDa2ogoeNRCB799/BMYeHv4YciAxmDxJBn79+h3DUJhhMDmiDUTXCOJjEyMpDNENIGQYUZGCbCghw+hvIFW9TPVIoXqyoXrCHi1tSDMQRFATAwCWHPXmLhmTxgAAAABJRU5ErkJggg==")}
+.wbtn.close:not([disabled]):hover,.wbtn.close:not([disabled]):active{background-image:url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAZ0lEQVR42mPg4uL6Ty0cGhr/nwHEMDa2ogoeNRCB799/BMYeHv4YciAxmDxJBn79+h3DUJhhMDmiDUTXCOJjEyMpDNENIGQYUZGCbCghw+hvIFW9TPVIoXqyoXrCHi1tSDMQRFATAwBYGPe8bgn2qQAAAABJRU5ErkJggg==")}
+.wtitle{position:absolute;left:0;right:0;text-align:center;font-size:13px;font-weight:700;color:#fff;pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 30px}
+
+/* buttons */
+.gel{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:24px;padding:0 16px;cursor:pointer;white-space:nowrap;font-size:13px;
+  background:var(--control);color:var(--text);border:1px solid;border-color:var(--bevel) var(--shadow) var(--shadow) var(--bevel);border-radius:0}
+.gel:hover{background:#2c2c34}
+.gel:active{border-color:var(--shadow) var(--bevel) var(--bevel) var(--shadow);background:var(--raised)}
+.gel.blue{outline:1px solid var(--text);outline-offset:1px;font-weight:600}
+.gel[disabled]{color:var(--text-3);cursor:default;outline-color:var(--raised);background:var(--control)}
+.gel.small{height:20px;font-size:11.5px;padding:0 10px}
+.gel.big{height:26px;padding:0 22px}
+.linkbtn{border:0;background:none;padding:0;color:var(--link);cursor:pointer;text-decoration:underline;font-size:inherit}
+
+/* focus */
+:focus{outline:none}
+:focus-visible{outline:2px solid var(--accent)!important;outline-offset:1px}
+h1:focus-visible{outline-offset:3px}
+
+/* progress */
+.prog{position:relative;height:14px;width:100%;border:1px solid;border-color:var(--shadow) var(--bevel) var(--bevel) var(--shadow);background:var(--field);overflow:hidden}
+.prog .bar{position:absolute;inset:0 auto 0 0;background:var(--sel);transition:width .12s linear}
+.progline{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;margin-top:6px;font-size:12px;color:var(--text-2)}
+
+.ico{display:block;flex:none}
+.muted{color:var(--text-2)}
+
+/* ---------- Installer screens ---------- */
+.scr{display:flex;flex-direction:column;min-height:380px}
+.scrbody{flex:1;padding:22px 24px 18px}
+.scr h1{margin:0 0 4px;font-size:18px;font-weight:700}
+.scr .sub{margin:0;color:var(--text-2)}
+.welcome{text-align:center;padding-top:6px}
+.welcome .ico{margin:0 auto 14px}
+.welcome .olist{max-height:none;text-align:left;margin-left:auto;margin-right:auto;max-width:300px}
+.uhead{display:flex;gap:18px;align-items:flex-start}
+.uicon{position:relative;flex:none}
+.uicon .corner{position:absolute;right:-4px;bottom:-4px;width:24px;height:24px}
+.uh{flex:1;min-width:0;padding-top:4px}
+.foot{flex:none;display:flex;gap:12px;align-items:center;justify-content:flex-end;flex-wrap:wrap;padding:10px 24px 14px;border-top:1px solid var(--raised)}
+.foot .sp{flex:1}
+.foot .fnote{font-size:11.5px;color:var(--text-2)}
+
+/* choice lists (radio rows) */
+.olist{position:relative;margin:16px 0 0;padding:0;border:1px solid;border-color:var(--shadow) var(--bevel) var(--bevel) var(--shadow);background:var(--field);max-height:236px;overflow:auto}
+.olist.tall{max-height:200px}
+.opt{position:relative;display:flex;align-items:center;gap:10px;padding:7px 12px;cursor:pointer;font-size:13px}
+.opt+.opt{border-top:1px solid #1d1d22}
+.opt input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.opt .lbl{flex:1;min-width:0;overflow-wrap:anywhere}
+.opt .lbl small{display:block;font-size:11.5px;color:var(--text-2)}
+.opt .note{font-size:11.5px;color:var(--text-3);white-space:nowrap}
+.opt svg{width:16px;height:16px;flex:none;fill:none;stroke:var(--text-2);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.opt:has(input:checked){background:var(--sel);color:#fff}
+.opt:has(input:checked) .lbl small,.opt:has(input:checked) .note{color:#dbe7ff}
+.opt:has(input:checked) svg{stroke:#fff}
+.opt:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:-2px}
+.opt:has(input:disabled){color:var(--text-3);cursor:default}
+.opt:has(input:disabled) input{cursor:default}
+.opt:has(input:disabled) svg{stroke:var(--text-3)}
+.opt .dsk{width:22px;height:22px}
+.empty{padding:10px 12px;color:var(--text-3);font-size:12px}
+
+/* fields */
+.field{height:24px;background:var(--field);color:var(--text);border:1px solid;border-color:var(--shadow) var(--bevel) var(--bevel) var(--shadow);padding:0 6px;border-radius:0;font-size:13px;min-width:0;width:100%}
+.form{display:grid;grid-template-columns:auto 1fr;gap:8px 10px;align-items:center;margin:16px 0 0}
+.form label{font-size:12px;color:var(--text-2);text-align:right}
+.form .help{grid-column:2;margin:-4px 0 0;font-size:11.5px;color:var(--text-3)}
+.err{color:var(--err);font-size:12px;min-height:17px;margin:10px 0 0}
+.search{position:relative;margin-top:14px}
+.search .field{padding-left:24px}
+.search svg{position:absolute;left:7px;top:6px;width:12px;height:12px;fill:none;stroke:var(--text-3);stroke-width:1.8;stroke-linecap:round}
+.kbline{margin:12px 0 0;font-size:12.5px;color:var(--text-2);display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.kbline b{color:var(--text);font-weight:600}
+.popup{position:relative;display:inline-block}
+.popup select{appearance:none;-webkit-appearance:none;height:22px;padding:0 24px 0 8px;border-radius:0;font-size:12px;background:var(--control);color:var(--text);border:1px solid;border-color:var(--bevel) var(--shadow) var(--shadow) var(--bevel);cursor:pointer}
+.popup::after{content:"";position:absolute;right:9px;top:50%;width:6px;height:6px;margin-top:-5px;border:solid var(--text-2);border-width:0 1.5px 1.5px 0;transform:rotate(45deg);pointer-events:none}
+.pwrow{margin-top:12px;display:grid;grid-template-columns:auto 1fr;gap:8px 10px;align-items:center}
+.pwrow label{font-size:12px;color:var(--text-2)}
+.joining{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2)}
+.spin{width:12px;height:12px;border-radius:50%;border:2px solid #3a3a42;border-top-color:#d6d6dc;animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.warnbox{margin-top:16px;padding:9px 12px;background:var(--control);border:1px solid;border-color:var(--shadow) var(--bevel) var(--bevel) var(--shadow);display:flex;gap:10px;align-items:flex-start;font-size:12.5px}
+.warnbox svg{width:18px;height:18px;flex:none;fill:none;stroke:var(--warn);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.instbox{margin-top:26px}
+
+/* desktop icon (installer closed) */
+.dicon{margin-top:24vh;display:flex;flex-direction:column;align-items:center;gap:6px;border:0;background:none;padding:8px 10px;cursor:pointer;color:var(--text);font-size:12px}
+.dicon span:last-child{padding:1px 6px}
+.dicon:focus-visible span:last-child,.dicon:hover span:last-child{background:var(--sel);color:#fff}
+
+/* ---------- login window ---------- */
+.login{width:min(360px,100%);margin-top:16vh}
+.lbody{padding:22px 26px 20px;text-align:center}
+.wordmark{font:700 30px var(--font);letter-spacing:.02em;color:#fff}
+.wordmark span{color:var(--accent)}
+.login .wordmark{font-size:24px;margin-bottom:18px}
+.avatar{width:56px;height:56px;margin:0 auto 8px;display:grid;place-items:center;background:var(--sel);color:#fff;font:700 21px var(--font);border:1px solid;border-color:#3d86e8 var(--shadow) var(--shadow) #3d86e8}
+.lname{font-weight:600;margin:0 0 14px}
+.login form{display:grid;gap:8px}
+.login form .gel{justify-self:end}
+.login .field{flex:1}
+.login .err{min-height:17px;margin:8px 0 -6px}
+.login.shake{animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+
+/* ---------- restart screen ---------- */
+.boot{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,0);transition:background-color .9s ease, opacity .7s ease;display:grid;place-items:center;color:#d6d6dc}
+.boot.dim{background:rgba(0,0,0,.6)}
+.boot.black{background:#000}
+.boot.out{opacity:0}
+.bstage{width:100%;height:100%;display:grid;place-items:center;padding:16px}
+.bmsg{margin:12px 0 0;font-size:13px;color:#c8c8d0;text-align:center}
+.bspin{width:26px;height:26px;margin:0 auto;border-radius:50%;border:2.5px solid #3a3a42;border-top-color:#d6d6dc;animation:spin .9s linear infinite}
+.splash{text-align:center;width:min(320px,100%)}
+.splash .prog{width:200px;margin:26px auto 0;height:8px}
+.splash .bmsg{min-height:1.4em;font-size:12px;color:#8b8b94}
+
+/* ---------- simulator controls ---------- */
+.sim{position:fixed;left:12px;bottom:12px;z-index:95;width:290px;background:#0c0c10;border:1px dashed #2f6f80;color:var(--text-2);font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.6)}
+.simhead{display:flex;align-items:center}
+.simtog{flex:1;min-width:0;white-space:nowrap;display:flex;align-items:center;gap:8px;border:0;background:none;padding:7px 10px;cursor:pointer;color:var(--accent);font:600 10.5px var(--font);letter-spacing:.1em;text-transform:uppercase;text-align:left}
+.simtog svg{width:8px;height:8px;fill:var(--accent);transition:transform .12s}
+.simtog[aria-expanded="true"] svg{transform:rotate(90deg)}
+.simtog .st{margin-left:auto;font:400 10.5px var(--mono);letter-spacing:0;text-transform:none;color:var(--text-3)}
+.simhead .gel{margin-right:8px}
+.simbody{padding:0 10px 10px;border-top:1px dashed #2f6f80}
+.simbody p{margin:8px 0;font-size:11px;color:var(--text-3)}
+.simbody p.hl{color:var(--warn)}
+.simbody h4{margin:10px 0 4px;font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--text-2)}
+.simbtns{display:flex;flex-wrap:wrap;gap:6px}
+.simbody .popup,.simbody .popup select{width:100%}
+.seg2{display:inline-flex}
+.seg2 label{position:relative}
+.seg2 input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.seg2 span{display:block;padding:0 12px;height:22px;line-height:20px;background:var(--control);border:1px solid;border-color:var(--bevel) var(--shadow) var(--shadow) var(--bevel);font-size:12px;color:var(--text)}
+.seg2 input:checked+span{background:var(--sel);color:#fff;border-color:var(--shadow) var(--bevel) var(--bevel) var(--shadow)}
+.seg2 input:focus-visible+span{outline:2px solid var(--accent);outline-offset:1px}
+.chk{display:flex;gap:10px;align-items:flex-start;padding:5px 0;font-size:12px;cursor:pointer}
+.cbx{appearance:none;-webkit-appearance:none;width:14px;height:14px;margin:2px 0 0;flex:none;cursor:pointer;background:var(--field);
+  border:1px solid;border-color:var(--shadow) var(--bevel) var(--bevel) var(--shadow)}
+.cbx:checked::after{content:"";display:block;width:4px;height:8px;margin:0 0 0 4px;border:solid var(--text);border-width:0 2px 2px 0;transform:rotate(40deg)}
+
+/* ---------- narrow ---------- */
+@media (max-width:1060px){
+  .sim{position:static;width:min(560px,100%);margin-top:16px;box-shadow:none}
+}
+@media (max-width:760px){
+  .menubar{gap:8px;padding:0 8px}
+  .menubar .mbopt{display:none!important}
+  .dock{display:none}
+  .desk{padding-bottom:24px}
+  .win{margin-top:12px}
+  .login{margin-top:12vh}
+  .scr{min-height:0}
+  .scrbody{padding:18px 14px 16px}
+  .foot{padding:10px 14px 12px}
+  .uhead{gap:12px}
+  .uicon svg{width:48px;height:48px}
+  .uicon .corner{width:20px;height:20px}
+  .form{grid-template-columns:1fr;gap:4px}
+  .form label{text-align:left;margin-top:6px}
+  .form .help{grid-column:1;margin:0}
+  .dicon{margin-top:12vh}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<div class="desk" id="desk">
+  <div class="menubar" id="menubar">
+    <span class="menus" id="menus"></span>
+    <span class="sp"></span>
+    <span class="st">
+      <span class="mbopt" id="mb-extras"></span>
+      <span class="clock" id="clock" aria-hidden="true"></span>
+    </span>
+  </div>
+
+  <!-- install image: the Installer window -->
+  <div class="win" id="win">
+    <div class="titlebar">
+      <button type="button" class="wbtn mini" id="win-mini" tabindex="-1" aria-label="Miniaturize window" disabled></button>
+      <div class="wtitle">Installer</div>
+      <button type="button" class="wbtn close" id="win-close" tabindex="-1" aria-label="Close window"></button>
+    </div>
+    <main id="view"></main>
+  </div>
+  <button type="button" class="dicon" id="reopen" hidden><span id="reopen-ico"></span><span>Installer</span></button>
+
+  <!-- installed system: login window -->
+  <div class="win login" id="loginwin" hidden>
+    <div class="titlebar"><span class="wspace"></span><div class="wtitle">Log In</div><span class="wspace"></span></div>
+    <div class="lbody">
+      <div class="wordmark" aria-hidden="true">Next<span>BSD</span></div>
+      <form id="l-form" class="lform" novalidate>
+        <label class="vh" for="l-user">Name</label>
+        <input type="text" class="field" id="l-user" placeholder="Name" autocomplete="username" spellcheck="false">
+        <label class="vh" for="l-pass">Password</label>
+        <input type="password" class="field" id="l-pass" placeholder="Password" autocomplete="current-password">
+        <button type="submit" class="gel blue" id="l-ok">Log In</button>
+      </form>
+      <p class="err" id="l-err" role="alert"></p>
+    </div>
+  </div>
+
+  <aside class="sim" id="sim" aria-label="Simulator controls">
+    <div class="simhead">
+      <button type="button" class="simtog" id="simtog" aria-expanded="false" aria-controls="simbody"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 1l6 4-6 4z"/></svg>Simulator controls<span class="st" id="simstate"></span></button>
+      <button type="button" class="gel small" id="sim-over-top" data-reset="welcome" hidden>Start over</button>
+    </div>
+    <div class="simbody" id="simbody" hidden>
+      <p>Not part of Installer. These drive the mockup so you can replay the install and try what goes wrong. Disks and timings are sample data; nothing you type is kept.</p>
+      <h4>Start from</h4>
+      <div class="simbtns">
+        <button type="button" class="gel small" data-reset="welcome">Welcome</button>
+        <button type="button" class="gel small" data-reset="disk">Choose a disk</button>
+        <button type="button" class="gel small" data-reset="installing">Installing</button>
+        <button type="button" class="gel small" data-reset="done">Done</button>
+        <button type="button" class="gel small" data-reset="login">Login window</button>
+      </div>
+      <label class="chk"><input type="checkbox" class="cbx" id="sim-from"><span>Running from an installed system</span></label>
+      <h4><label for="sim-fail">Force a failure</label></h4>
+      <span class="popup"><select id="sim-fail">
+        <option value="none">None</option>
+        <option value="small" id="sim-small">No disk big enough</option>
+        <option value="write">Installing: write error (once)</option>
+      </select></span>
+      <h4 id="sim-speed-l">Speed</h4>
+      <div class="seg2" role="radiogroup" aria-labelledby="sim-speed-l">
+        <label><input type="radio" name="sim-speed" value="1" checked><span>1×</span></label><label><input type="radio" name="sim-speed" value="5"><span>5×</span></label>
+      </div>
+      <div class="simbtns" id="sim-skipwrap" style="margin-top:10px" hidden><button type="button" class="gel small" id="sim-skip">Finish restart now</button></div>
+      <div class="simbtns" id="sim-overwrap" style="margin-top:10px" hidden><button type="button" class="gel small" data-reset="welcome">Start over</button></div>
+    </div>
+  </aside>
+
+  <div class="dock" id="dock" hidden aria-hidden="true"></div>
+</div>
+
+<div class="boot" id="boot" hidden role="dialog" aria-modal="true" aria-label="Restarting" tabindex="-1"><div class="bstage" id="bstage" aria-live="polite"></div></div>
+<div class="vh" id="live" aria-live="polite"></div>
+
+<script>
+(function(){
+"use strict";
+const ICON_WORKSPACE="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAQKADAAQAAAABAAAAQAAAAABGUUKwAAAW5ElEQVR4Ae1aaYwcx3V+3T3T03PuMXtyd3nsUiRFiVpKJHXYOpNYpyUbAmzEgZHEgB34Txz7TxAkQGAnDhIBRuQgyGnEMBLHR3xIiiQqchzKliXeEsX72uVyOXvv3FffXfle9exaMbmkTNJI4LDImu6p7qqp97371RLdaDcQuIHADQRuIHADgf+3CCjXk/Kpc8dGM+1dv+77vk2CJl0vmLXMRr7hmPlGI196ZvsH6t8h8q/nb17rWtcNgOPHd3euHRg+kGhrG6YANApBgeeT6+FDUCMIRCUQIo/rHCliRgQi53jOLLk0Y9rmnGc3Fxeqc6W77368BqLEtRL2XudfNwBmJk5v6si2HVYVJfozBPBvKKqqkqppsuODh0KQfIDkuj7waqCXhBALeDjrev6s8L0p13GnhCpmKvnC2IbbdpzDs+vaItdrNduxealgaT1FUXErGQm6SPhBQNxBLcaXcBe443uh4jOjaRp6ZA0DBcjQMRoI8jyPkolE8fTxAx/feMuOV5Z+43pceZfXrYF7ci2IOVUqVWo0TLIdl3yfcVFISgG4H14hEZJIfqIIYBUEeNF1ncAyzcBuNgKrUQ9sC9dmPVBJdA6sWvWvJ95+8/7rtmEsdN0kAMQLRQEhYJoPGzA7twBmezAFGAInmehoNEq6HkGPUSymU1SPUjQSoQh6CApLQ8h4eYO5PD+A5MCUBOlMsmNw9dC3Dxz48eM7djxwSL5zjR/hL17jIpiuHT5weP2Gjb2HsKCB7yEQsH/YN0GPybYdSAM6rtB5dH7mQ8J9EK9RBGIfkQAxSFGKoadTKdKjEbIsizWBEgmDAVPr9cbY2ckLj+zYcd+5a936NQHwO9u2RT/7uewfd7X7T/p+u9J2/5c3q1pUdUDg+clpEKaAABDEHRyXXMc9c1uqN6hi9XBcBuanIDktoFb191B3tpOazSbEQqVkMs56QkYsphZL5bffOnL4sUceeZqN5lW3awLg4Je3fWTTuui/1RcWyNK6qeupbwVqxJBGK18oUq1Wp6ZpUzRmSClgwhAjQPcJ6qBJVTAMg+JxdCMmQWKVgDGUADFVrAISEMsGAEk4EBXPFYonEurifP6V42dzH33ooYfqV4vANdmAtGE/6FbqVK9ZgalYSidbeXQhAkqAqGhEo+GRLkkgG0bmNuICqQYmCGo0muCuSZWFIsZsqIUjCdYgISz6g4P91NHeJsd8zJucOE+Nek3ahEhUC7qyXY8lo96nQfyX/jcAUBTfvaVRt8k2XcWJeHJjDIADnT91epxq9Qbde+895HsOhkMPoUcUikUNaksnSOnplBYPTIaOC2k0LdgIs2lhLpiqRMi0QqkBppTOpAFmDM+b5Lk2+QBM17T+qyWe5121BPzFRzoywvNGGtiwZXlkRQEAOCwUH45A0PCaASqWKlLfmUBuYWwQijUbv1aYED7ErChEW08CnFSc+nuzeAwPgLmIGqUazM3OQjJ0ynYnMQYpS8RpsVCVAUhrkZ/7ctVxwJbB5GrfdnrqNUc0my41G54MdthIceDCV42VvdUYBJaIpmmyS5PEs5Fcjgkg9twCsNrzPaiKG67j4wpuI5Sivr4erAHuA2i2KxHdEPb8kdv3fH7wwZ3P3DWI6T83PVctATFhb3SbpDcadmA2YcVjcGnYGHOW3Z4DyXAQHTKnlnz5hdw0RNoC0ez2EBfoOhncIdYGCGL3x7ECP2NwWC1YSjgOYNeZTqeoFyDMzsxRNov5saQoTx5+NGo3Hr19c6SU/88Pjbu+dtTylAO1qv3O/gOF0598dk9RIrvCx1UDoJB7a7PugyMuWaZH4HnIWWycN8uuEPG85CgTwG5v08YR+Q5bdQtGkA0hX+t5cBVSwwEUB00RLSIDpIGBPkolE9JzsPdApEhtbWlpRIvFEsXiaSpW3KByqqRkMuMdA2vr21OJ+HY1nviE2RUTq5/snX7iAx/c9/aeyS888adHj14Kg8sC8MxTG9NPf/qxp3QjkrVNa9pqNJGUzM8f3H+8WCrMjFaEQzWTsCFwyYNVb9qkRlgCwoCHjSFv3PdVaQSnZ+fhAuHC4CEMuL0U3FoEnoKJZilh1eCYgEFpwhCy9CwRLu0I3mMQero7AbpFpXJFzvFgLEzTE2bdgkF2FE2rCAU/pEUig3392cHRLenhz91D7392D2G3/7OtCMA3P//Uql95eMN3e9b23UOqDlGMIpKDhiJr2/rw46XSzHS2ns8HpYVFKiMOqDYCyk+foEBJkOMrZLvs8gS47EmimUCeXIZ1X1goEKd/3BiQpZiAgWH3yeB0dydkdOj7sC2+r/geSxFsBidKaEOrV9Fkbp7qiDMs5FeWyRIXEODEyngP1wD7Lc8UVCOmr+/tincTmRfk5Hd9rAjA1luNz/VkS/cEuXNYT0XXKKpoihIxUko0kUr1pQiOGhHNBgTCceRzESQyTYDUIMsO4ONdqpYtql6A4eu4TbqwrmwH9fZ0SaLZ2DnIFTg0lhwHR8tIoBYWC9Idsv7fNLwGcUAazkPFOw0aOwt1xjjbCgRC1I4YwUIEaTpE9SY8EZCIRgMpVdAiqXYaAi67bpZPHTWr76J7+XZFAHTF7ifXgFuLcH6DH+YgxxPCM4UwC+F35iKPs/GFYYtqMeiuQelogrpTSYW62hTfPxMcPzVB9e7HQdwC719ymF0YR39xRIJJ6DkTw+rAz1ns2YZwVMhc5UEjHoc3cKlcKtACvAnbjFQ6g6gQuQJUsAEAbKigMHSoG/w7pA1qQEYigIdyZr52nirLVL/rZkUAahX7FOSUBYqplP/DeexpAAkkQiLDjxkhGDDhIGZ36lJ34bbYiQutc4CG01XaM9lHmf7bABUnQR7V4c44TmC9ZyPJ7GKCOV9gNWBg9BgnRcgaAQwnS+m2NkoALKTL0s7oRpxO63GCE4IEQOrqCJqwVFQXSKw43VYok9HJajoT2CE2enFbEYBKxT7hQ38V3hw35vTSElh4mfgWPuEAj6MgpOFFOQ++oTwDY5dR1qWOibPz0O9EBwhLUSaVlm6QxZt1G7reivktKhQrVGvMAT8VgMQIxkyCBGmmzrYEDfV3Yy5S6ngCkgcJgA1omAHVoXZgPOmwPVFdkzmDCKAaJpi5QlsRgNJc9axpdTnJqB9Fph+SzsRy0Ucwocx2fOchKQWtsSWg5LsYw+uB7Yr1G7toUK0hEKqi++iCrCoMq6uTK+IQqATKg3GKJrppw+AwRD5BNuIlG2kzG75IJEqFSg12YJwa1jwND2QpltBAMBtcBFmw742GsySMkARIASTHBjr5gn1mBfpXDoX3HZybed8DA8VUu9oHMxwCIAmWFLcAaBEvV+dxBgVNEt+aAg4RVCOY3IMcIE4G7ENnxIBsJiGrMRHAxviuSTMLCpVTT5GfGaCXDudo79giFQGUC0IgI5TWArpzXTt98L5ReBybdp88Rpv7i1St1vCdqFD2RT4dsD+VamV4OulxXTGbbrBYsM6FG7v4s7Xjix9gRJ167rHdA72RuwKHNevdbYnYFpEMDMuebLwk33Nn44gLP5OxP4sDqkSsHtioHEailHM2kLf1T5RXDhfEt/dP0NqREXpo6xrqz6Zlagz7RpMFk/YcPk8Tx47Q7z16Mw2tGaJTb36L7tReoUrDo8W5ColantziAsWEiagRcUbaUHt6Y8V/+Prsbc8epmns5KK2ogrgzaBZs8apN3EX0rnWxDBg4WQnZPa78GN6ubG2LEsAE8zfw0d8gR+VCZMcChyaag5SffSL9DcvnhJHahp95uOP0uMbMpRG6JGHmkxUhWjHAv2pJO1Ys0U9ePt68aXv7KLfvVdQz+iH6NDuCfrw2iPU+eCdJOIdVEN6/vo3vk+l6RyMaQSBkTL/4mHKhzu4+JP5s2JDogNPgFgelhqZn+yQr/A71/uQsMB6gUjmKF8BFMAS8AhyjMd5/nJHTYCtPjQKagWdJiqP/D59ddc5OlKL0jO//QB95JYM6UpAZSug6XoAOwBb4QpYenTbD0ZXxcSnfuMR+sreRYoj85zPPknP/2CWJl97gaoHX6aUO0Oj99yMgAt5CfZhWu75MZiSlYi8LAClknXKR5zPlpQ3zEUJH0TzVSY+IEbewz8HAIQPQiSBrSvfcxEkDIdbV/h1nuuZiAiTD9OxSg+9ejpPn3n6LtrWr1Mdlm8RnD9WFLQAw2Z5QnGh2ggs5X0F1n5dh0Zbt99BLx+4QOtH1tEJ41dpZq4BbltkTY2RtziJdZhkdo3uigaQ37gsAIv55nit4fkw7DIUlURi80wAE8ac9Lm4CbfjYYdsKzlkDbnceg/fOQSWGSHe5ViepalUV6nW/Ri9sPsobd8+Su9fk5LE51AHeSfPxKO0buOkBLFNCde6AyAQYnOYXbcDsX1DN52uos6INKye2UJjeRRK6qZ0l2a1ToiQpSZW6t5ZJnSldjkbQG++Vco9cE93IRkRPZ4DOYTK80FGS6VDM8ArQxRlw+bkr0pY+c2WzUBEtgQCvxfg6LAo1tC810XjxfP08Q+sIuQydB7WfKoOqOTvSO2ROQPOjdiUICpAiIGggQMcA5WlZHcPRN0mI5mlnNlFteoCtXVytoh6ArbkAPxiSYzLva3wcVkJ+OufzBWRZEwzx5hzgeRuKOryO0sB9JxFf1n8MSaDwNa7bA8Cno/OtoDneTZKXtoQzYK9aiwhQ+N9c74YLwdkgVgbYDAgFtbge3aFDAI8GpVNV5Qalswj2tsyVEXewVXnvJOGuFuIEDm/wB7AFtcN7NmCN7kC7XL4shKAN3wUFsZEKnI7i7xcdSkAWloV3GK5CC0/34LvLYGQr4D7bBCXpIZVweUSuJ6GKLsIdQ0RAUurMHq4yphLOhJMBtNlaMtORRZVAQSHzrBJolb38EvIONnOOhY1HAViD3CBlMV6ItNBkd97nubkPlb4uBIACEntMwEOpljXZWOCJTXLN2FQuKwQGOdHaBzicj4h35fBJLYMMPhQxEItIZKCSwR1rFRInxUX8og5OGEK5zPh0nYsAeB7iMx9oeOVJCJu3augtoAosIIYwEF+ADSwtmJaPnHxFUnS9MsXLp0Ehb/wHoqikIDTlq0DALg47EjSzhTKXWLzuEpCWyvyMG+cMzFufL/8eus7e0evOkMdq2OI/1FQZ+MI7jpgrlwvnILfwr/wByVwAWoDESVQsgiB2xM4bAlsyhgaLc7P0aBflu+yAUbdAtVinMN6Ah6Qg/GV2xUloFw2z9YbsUATPlcawh21WCQ3ywautUkmWRLOoMB1gfzWf4SzS+9JXJCplU6SoTjUo/t08kKZbh/ppAtll9UAWVwLXwT6aLCf7GE8iiEcHmyLUn8aCRDWNwBAAG+Rn5mkLYh12OiyhzJhA1BWxFVc1gUyLJc1gvzCWM7KWbZfgXtTWP9khzR4skudC+9R/mIDxJ2fcWF06V66SnCZucPuUiCVbvenqHxuH92/eZB2HzpDNSn/pJhQBQ58uKLEQVDTcRUbZTJDC5SbsroynNWpt82gs7lFuhVFmT17D1G8PkEdGv6uAsdnsAGyIIMKO6fILAGXbVcE4JsvFRZt05tlK+5J4lpEgxg+/XXhcvhHw45ASRIfvhsGQmEwxMCF8UEo7u2ol7jHvk6DPVm6xajQc/smaRFuEJUtwcEQdxOu14fB64bIb+mL07rOGPVmYnR6BnWEUomKszn60a4f0YB3jJKoAXDtAhMETthhJSioNOiyLpCRuSIAxzmXs/wJdmdLHA45C6IBiANLziBIYiUoIJSBYm5DqV30UGr42gqS4NoisTjdJA7Q6de+Tk/dt5X6y6foyNkZQs7DqoaMIVBAq7KpKwbiDWWwA9WjWIR2n5qj3PgUdWnICN86TgMdAfV481APKDs0jr0VfgfGUpRRbL5wWfbjIaZduX3szuSOtjjdjRMgRlgaJI762HDJkBj3HOiwcVuOEuV3ft56xldpQsCals3QUWpsTOyjQ6U+eviBe8mAYTw7VaAy1CEBinrgJRK6opgA+dxsiY6dzCkp31Xy05NUQv3wC5/9GJ0rEb1WHqRmpUg3p+aVNE6VpuZt1bL8sR/soWdnr2AE3xMAT48mR7IJesJGlCIJXiacA5tW4LM0xj6fwZGEM1i4Z+vJ4wwQvjNYbB+5GtQRRTl97Cf0k3GfRjZupfvXt1O/1iC/WqRmsUgNLn3XKtShBpQUNr34yi567qXXaNPNN9Ox8Wka9wdI2/gEvbHQTd7cCbq9M6/MFgOl3vT3fmOSvnEl9r4nAO4d0vzOBH1KVXwVnJf1kZDzTBRz/l2diZdEhrmBfMZSAxAkKEx76x12CCrKXV2GTan8Htq3/xAdmqgj6oORNCLUHoVHQDFlEX9t8uM3DtILL71KhROv0a2xSTq6GKP/yiXofN1AHVRTNm7eTLumUSWCKrU780q5Ti+/PkU/uC4A7Dxpz97ZFyDl8+6AsUvAMcHesp4h6AukvoXJkSScCWXif0q0DJdBNJepQhUKJSLUBQU1Px1+XaGR6AVKFfbT4tl9dOboQTrxzkE6/c4eWjj+OqUW36C79QP0SM84bYrP0o+nUzS5AGOCipODgr0Om7L+5lvopTH8VcniCaXfq/z9rhk6ciUApFe+0ktLz39zmFav7aMtqaQ6Ct0cjceUTag6DcV1tSMd5zN9PtODXQU8LPUIBzhSWg6W+HQ4jB3wCv9rFUSl48eP8FGajeNwE6lcE4aVi51YRsYGiZiKqA/niKga+zgs/c6pTvrb8e2kdQxQYu0doq1/Da1dM6AkITkHdn5bVc+8+snFsR/909LeV7r+XABcYpHo0wPUO9xP69NJ2gIg7kgZyqZETBlORNXuTEJRIJ7yrzokyarKR1as/RKI1h9GASQkA63ohzck1YYRROfGzzScO2j81yER+HoAVcbZ4F+9s5ZenN1Msb5hiq8eFW29g8radYMAzFf27Hyu3JzY/1E6870fykVW+LhWAC657PtS1LNlHY30ZGg0FVdHkzFlC/oIuNjbltQACiQFxLBE4ArFWJIcjgJZMkKA8EIIFHYJlPirjCj5uYNT5qn5Mv3ZoVvprfpGivePkDGwGWcPQ2L9ukHFd5rq3p3P5a3J/R+m8X9/85IbxeB7MoIrTV5pPOdQ460Fmno9Rwd/eE68vPOs+GoxF/xz3fWfL9a8vYsVf6pQ89x60zUQZcLZ+aw0XDSATUENXjYQLSWAJaF1HwqE/FmWHgMqN6JP0+FCivIopKhaRPg4x7SQDHZ1Zamzfyi5UGg+5kc6dlHx5CWzwl8IAJcC5oJDzRYob/9wQux8BaBU8sG/IMh6IV91387XvPlSzcURlxuHiMc1CQqXuREYsfFklcA/bqFmQFoiEdEWD2hAm1H2zuOvyeRBrEYeDmdQyaP+gVWkpzsyi9O5XyM1/n2qnb/ofPAXogKXAuA9jkU+tIr6YWg3Z9PqtnRcubMtod2aSmhDbcmInkSVlw87oCNsbANWI1aOUqki/vFNXXuhcS8FyX5h9G4IYlCJpKEqpSOv4u8P5lRhm5+g3H987Wf3ccVs8Gcn/IK/ey/MUI64U/Aq/1Y3+aknN9BIX5a2tSe1uzJJ9Q6AcVNHOtKWSbJXiEpbskopv2G41e9Wm/pfOoUJ1fNdUcy9JURjTlHiHZAHQlR/cfu/JgEX7/DiEfXDa2n1xm7akm1X704nI9tqpl/dd9L/g+9doHPq0MNfpGT2jxCukWgskBJv56OKPw/Gnv/Di5dif/TL1zR19cN/J/TEb4G8MuzGl2ns+WdA5mULI798MPTdt5mG3r/ql4+wGxTdQOAGAjcQuIHA9UPgvwEtTPBhFOewIAAAAABJRU5ErkJggg==", ICON_TERMINAL="data:image/png;base64,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";
+const MIN_GB=32;
+
+/* ---------- sample data ---------- */
+const DISKS_OK=[{id:"nvme0",name:"Samsung SSD 990 PRO",size:"1 TB",gb:1000},{id:"da0",name:"SanDisk USB",size:"32 GB",gb:32,installer:true}];
+// Running from an installed NextBSD: its own disk can't be chosen.
+const DISKS_INSTALLED=[{id:"nvme0",name:"Samsung SSD 990 PRO",size:"1 TB",gb:1000,current:true},{id:"da1",name:"Samsung T7",size:"2 TB",gb:2000}];
+const DISKS_INSTALLED_NONE=[{id:"nvme0",name:"Samsung SSD 990 PRO",size:"1 TB",gb:1000,current:true}];
+const DISKS_SMALL=[{id:"mmc0",name:"Kingston eMMC",size:"16 GB",gb:16},{id:"da0",name:"SanDisk USB",size:"32 GB",gb:32,installer:true}];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtTime=d=>d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
+
+/* ---------- state ---------- */
+// Nothing typed into a password field is ever put in S.
+function freshState(){
+  return {mode:"image",screen:"welcome",prevScreen:null,disk:null,
+    inst:{pct:0},
+    winOpen:true,finished:false,restarting:false};
+}
+const S=Object.assign(freshState(),{speed:1,fail:"none",fromInstalled:false});
+const disks=()=>S.fromInstalled?(S.fail==="small"?DISKS_INSTALLED_NONE:DISKS_INSTALLED):(S.fail==="small"?DISKS_SMALL:DISKS_OK);
+const usable=d=>!d.installer&&!d.current&&d.gb>=MIN_GB;
+const diskById=id=>disks().find(d=>d.id===id);
+
+/* ---------- simulated clock (5x speeds every wait) ---------- */
+const CANCEL={cancelled:true};
+let waits=[],gen=0,simNow=0,lastTick=performance.now();
+function sleep(ms){const g=gen;return new Promise((res,rej)=>{waits.push({t:ms,res,rej,g})})}
+setInterval(()=>{
+  const now=performance.now(),dt=Math.min(2000,now-lastTick)*S.speed;lastTick=now;simNow+=dt;
+  const keep=[];for(const w of waits){if(w.g!==gen){w.rej(CANCEL);continue}w.t-=dt;if(w.t<=0)w.res();else keep.push(w)}waits=keep;
+},50);
+function cancelFlows(){gen++;const w=waits;waits=[];w.forEach(x=>x.rej(CANCEL))}
+function flow(p){p.catch(e=>{if(e!==CANCEL)console.error(e)})}
+async function during(ms,on){const t0=simNow;for(;;){await sleep(80);const f=Math.min(1,(simNow-t0)/ms);if(on)on(f);if(f>=1)return}}
+function consumeFail(kind){if(S.fail!==kind)return false;S.fail="none";syncSim();return true}
+
+/* ---------- icons ---------- */
+function installerIcon(size){
+  return '<svg class="ico" width="'+size+'" height="'+size+'" viewBox="0 0 64 64" aria-hidden="true" focusable="false">'+
+   '<rect x="3" y="3" width="58" height="58" rx="12" fill="#26262d" stroke="#55555f" stroke-width="1.5"/>'+
+   '<g fill="none" stroke-linecap="round" stroke-linejoin="round">'+
+   '<path d="M32 9.5v22M23 23l9 9 9-9" stroke="#00d4ff" stroke-width="3.2"/>'+
+   '<rect x="13" y="40" width="38" height="13" rx="3" stroke="#f5f5f7" stroke-width="2.2"/><path d="M18.5 46.5h13" stroke="#f5f5f7" stroke-width="2.2"/>'+
+   '</g><circle cx="45" cy="46.5" r="1.8" fill="#f5f5f7"/></svg>';
+}
+const CORNER={
+  ok:'<svg class="corner" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="#1d3a26" stroke="#6fd38a" stroke-width="1.5"/><path d="M7.5 12.3l3 3 6-6.3" fill="none" stroke="#6fd38a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  warn:'<svg class="corner" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l10 18H2z" fill="#3b2a12" stroke="#ffb454" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 9v5.5" stroke="#ffb454" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="17.6" r="1.3" fill="#ffb454"/></svg>'
+};
+const SVG={
+  disk:'<svg class="dsk" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="8" width="19" height="8" rx="1.6"/><path d="M5.5 12h6"/><circle cx="18" cy="12" r=".6"/></svg>',
+  usb:'<svg class="dsk" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="9" width="13" height="6" rx="1.2"/><path d="M17 10h3.5v4H17"/></svg>',
+  lock:'<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.5" rx="1"/><path d="M5.5 7V5.2a2.5 2.5 0 0 1 5 0V7"/></svg>',
+  search:'<svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="6" cy="6" r="4.2"/><path d="M9.2 9.2l3.3 3.3"/></svg>',
+  warn:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4.5M12 17.2v.1"/></svg>'
+};
+const head=(o)=>'<div class="uhead"><span class="uicon">'+installerIcon(64)+(o.corner?CORNER[o.corner]:'')+'</span><div class="uh"><h1 id="vh1" tabindex="-1">'+o.title+'</h1>'+(o.sub?'<p class="sub">'+o.sub+'</p>':'')+'</div></div>';
+const plainHead=(t,sub)=>'<h1 id="vh1" tabindex="-1">'+t+'</h1>'+(sub?'<p class="sub">'+sub+'</p>':'');
+const btn=(id,label,o)=>'<button type="'+(o&&o.submit?'submit':'button')+'" class="gel'+(o&&o.primary?' blue big':'')+'" id="'+id+'"'+(o&&o.primary?' data-primary':'')+(o&&o.disabled?' disabled':'')+'>'+label+'</button>';
+const back=()=>btn("b-back","Back");
+const cont=(label,dis)=>btn("b-next",label||"Continue",{primary:true,submit:true,disabled:dis});
+
+/* ---------- screens ---------- */
+// Each returns {body, foot, focus}. The whole screen is one form, so Return
+// presses the primary button.
+const VIEW={
+  welcome(){
+    return {body:'<div class="welcome">'+installerIcon(72)+plainHead("Welcome to NextBSD",S.fromInstalled?"NextBSD is already installed. Install it on another disk to make a copy of this system.":"Install NextBSD on this computer.")+'</div>',
+      foot:cont("Install"),focus:'#b-next'};
+  },
+  disk(){
+    const list=disks(),any=list.some(usable);
+    return {body:plainHead("Choose a disk","Everything on the selected disk will be erased.")+
+      '<div class="olist" role="radiogroup" aria-labelledby="vh1">'+list.map(d=>{
+        const why=d.installer?"This is the installer":d.current?"This is the current system":d.gb<MIN_GB?"Too small":"";
+        return '<label class="opt"><input type="radio" name="disk" value="'+d.id+'"'+(S.disk===d.id?' checked':'')+(why?' disabled':'')+'>'+
+          (d.installer?SVG.usb:SVG.disk)+'<span class="lbl">'+d.name+' · '+d.size+'</span>'+(why?'<span class="note">'+why+'</span>':'')+'</label>'}).join("")+'</div>'+
+      (any?'':'<div class="warnbox" role="note">'+SVG.warn+'<span>'+(S.fromInstalled?'Connect another disk to install NextBSD on it.':'No disk is big enough. NextBSD needs a disk of at least '+MIN_GB+' GB.')+'</span></div>'),
+      foot:back()+cont("Next",!S.disk),focus:any?'input[name=disk]:checked,input[name=disk]:not(:disabled)':'#b-back'};
+  },
+  installing(){
+    return {body:head({title:"Installing NextBSD",sub:"This takes a few minutes."})+
+      '<div class="instbox"><div class="prog" id="inprog" role="progressbar" aria-label="Installing NextBSD" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="bar" id="inbar"></div></div>'+
+      '<div class="progline"><span id="intext"></span><span id="inleft"></span></div></div>',
+      foot:'',focus:'#vh1'};
+  },
+  installfail(){
+    return {body:head({corner:"warn",title:"NextBSD couldn’t be installed",sub:"Nothing on the disk can be used. Try again, or choose another disk."}),
+      foot:btn("b-otherdisk","Choose Another Disk")+btn("b-next","Try Again",{primary:true,submit:true}),focus:'#b-next'};
+  },
+  done(){
+    return {body:head({corner:"ok",title:"NextBSD is installed"}),
+      foot:btn("b-next","Restart",{primary:true,submit:true}),focus:'#b-next'};
+  }
+};
+const ANN={welcome:"Welcome to NextBSD.",disk:"Choose a disk. Everything on it will be erased.",installing:"Installing NextBSD.",
+  installfail:"NextBSD couldn't be installed.",done:"NextBSD is installed."};
+
+/* ---------- rendering ---------- */
+const live=$("#live");
+function announce(t){live.textContent="";setTimeout(()=>{live.textContent=t},30)}
+function clearSecrets(){document.querySelectorAll('input[type=password]').forEach(i=>{i.value=""})}
+
+function go(screen,opt){
+  const ae=document.activeElement;
+  const moveFocus=!(opt&&opt.keepFocus)&&$("#boot").hidden&&(!ae||ae===document.body||$("#win").contains(ae)||ae===$("#reopen"));
+  clearSecrets();
+  if(screen!==S.screen)S.prevScreen=S.screen;
+  S.screen=screen;S.mode="image";S.winOpen=true;
+  render();announce(ANN[screen]);
+  if(moveFocus)focusScreen();
+}
+function focusScreen(){
+  const v=VIEW[S.screen]();
+  const t=(v.focus&&$("#view").querySelector(v.focus))||$("#view [data-primary]:not([disabled])")||$("#vh1");
+  if(t)t.focus({preventScroll:true});
+}
+function render(){
+  const img=S.mode==="image";
+  $("#win").hidden=!(img&&S.winOpen);$("#reopen").hidden=!(img&&!S.winOpen);
+  $("#loginwin").hidden=S.mode!=="login";$("#dock").hidden=!(S.mode==="desktop"||(S.fromInstalled&&img));
+  if(img&&S.winOpen){
+    const v=VIEW[S.screen]();
+    $("#view").innerHTML='<form class="scr" id="scr" novalidate><div class="scrbody">'+v.body+'</div>'+(v.foot?'<div class="foot">'+v.foot+'</div>':'')+'</form>';
+    // Quitting is only harmless before the disk is erased.
+    $("#win-close").disabled=!["welcome","disk"].includes(S.screen);
+    if(S.screen==="installing")updateInstall();
+  }
+  renderMenubar();syncSim();
+}
+function renderMenubar(){
+  const m=S.mode;
+  $("#menus").innerHTML=m==="image"?'<span class="mtop"><b>Installer</b></span>':m==="desktop"?
+    '<span class="mtop"><b>Workspace</b></span><span class="mtop mbopt">File</span><span class="mtop mbopt">Edit</span><span class="mtop mbopt">View</span><span class="mtop mbopt">Window</span><span class="mtop mbopt">Help</span>':'';
+  $("#menus").setAttribute("aria-hidden","true");
+  $("#mb-extras").innerHTML=(m==="desktop"||(S.fromInstalled&&m==="image"))?
+    '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 6a9.5 9.5 0 0 1 13 0M3.8 8.6a6.2 6.2 0 0 1 8.4 0M6 11.1a3 3 0 0 1 4 0"/><circle cx="8" cy="13.3" r=".6" fill="#f5f5f7"/></svg>'+
+    '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 6h2.5l3.5-3v10l-3.5-3H2.5z"/><path d="M11 5.5a3.5 3.5 0 0 1 0 5"/></svg>':'';
+}
+
+/* ---------- install ---------- */
+const INSTALL_MS=30000;          // simulated; the copy really takes a few minutes
+const REAL_MIN=6;                // what the time-remaining line pretends
+function remaining(f){
+  const m=(1-f)*REAL_MIN;
+  if(f<.03)return "Calculating time remaining…";
+  if(m<1)return "Less than a minute remaining";
+  const r=Math.ceil(m);return "About "+r+" minute"+(r>1?"s":"")+" remaining";
+}
+function statusFor(f){return f<.06?"Preparing the disk…":f<.84?"Copying NextBSD…":f<.97?"Setting up…":"Finishing…"}
+function updateInstall(){
+  const bar=$("#inbar");if(!bar)return;const f=S.inst.pct;
+  bar.style.width=Math.max(1,f*100)+"%";$("#inprog").setAttribute("aria-valuenow",Math.floor(f*100));
+  const t=statusFor(f);if($("#intext").textContent!==t)$("#intext").textContent=t;
+  $("#inleft").textContent=remaining(f);
+}
+async function runInstall(){
+  S.inst={pct:0};
+  go("installing");
+  const failAt=S.fail==="write"?.47:2;
+  const t0=simNow;
+  for(;;){
+    await sleep(100);
+    const f=Math.min(1,(simNow-t0)/INSTALL_MS);
+    if(f>=failAt&&consumeFail("write")){S.inst.pct=failAt;go("installfail");return}
+    S.inst.pct=f;updateInstall();
+    if(f>=1)break;
+  }
+  await sleep(500);
+  go("done");
+}
+
+/* ---------- restart, login, desktop ---------- */
+function stage(h){$("#bstage").innerHTML=h}
+async function runRestart(){
+  clearSecrets();
+  S.restarting=true;syncSim();
+  const boot=$("#boot");boot.className="boot";boot.hidden=false;stage("");void boot.offsetWidth;
+  boot.classList.add("dim");boot.focus({preventScroll:true});
+  stage('<div><div class="bspin"></div><p class="bmsg">Restarting…</p></div>');await sleep(1400);
+  boot.classList.add("black");await sleep(1600);
+  stage("");await sleep(800);
+  stage('<div class="splash"><div class="wordmark">Next<span>BSD</span></div><div class="prog" role="progressbar" aria-label="Starting up" aria-valuemin="0" aria-valuemax="100"><div class="bar" id="spbar"></div></div><p class="bmsg" id="spmsg"></p></div>');
+  const msgs=[[0,"Starting NextBSD"],[.62,"Starting WindowServer"]];
+  await during(5500,f=>{const b=$("#spbar");if(b){b.style.width=(f*100)+"%";b.parentNode.setAttribute("aria-valuenow",Math.floor(f*100))}
+    const m=$("#spmsg");if(m){let t="";msgs.forEach(x=>{if(f>=x[0])t=x[1]});if(m.textContent!==t)m.textContent=t}});
+  await finishBoot();
+}
+async function finishBoot(){
+  S.restarting=false;showLogin();
+  const boot=$("#boot");boot.classList.add("out");
+  await sleep(700);
+  boot.hidden=true;boot.className="boot";stage("");
+  $("#l-user").focus({preventScroll:true});
+}
+function showLogin(){
+  S.mode="login";
+  $("#l-user").value="";$("#l-pass").value="";$("#l-err").textContent="";
+  render();announce("Log in to NextBSD.");
+}
+$("#l-form").addEventListener("submit",e=>{
+  e.preventDefault();const p=$("#l-pass");
+  if(!$("#l-user").value.trim()||!p.value){$("#l-err").textContent="Enter your name and password.";const w=$("#loginwin");w.classList.remove("shake");void w.offsetWidth;w.classList.add("shake");p.focus();return}
+  p.value="";$("#l-err").textContent="";
+  S.mode="desktop";S.finished=true;render();
+  announce("Logged in. The simulation is finished.");
+  $("#sim-over-top").focus({preventScroll:true});
+});
+
+/* ---------- events ---------- */
+$("#view").addEventListener("submit",e=>{
+  e.preventDefault();
+  const b=$("#b-next");if(!b||b.disabled)return;
+  switch(S.screen){
+    case "welcome":{
+      if(!S.disk||!usable(diskById(S.disk)||{})){const u=disks().find(usable);S.disk=u?u.id:null}
+      go("disk");break}
+    case "disk":case "installfail":flow(runInstall());break;
+    case "done":flow(runRestart());break;
+  }
+});
+$("#view").addEventListener("change",e=>{
+  const t=e.target;
+  if(t.name==="disk"){S.disk=t.value;$("#b-next").disabled=false}
+});
+document.addEventListener("click",e=>{
+  const t=e.target.closest("button");if(!t)return;
+  switch(t.id){
+    case "b-back":{
+      const prev={disk:"welcome"}[S.screen];
+      if(prev)go(prev);break}
+    case "b-otherdisk":go("disk");break;
+    case "win-close":if(!t.disabled){clearSecrets();S.winOpen=false;render();$("#reopen").focus();announce("Installer closed.")}break;
+    case "reopen":S.winOpen=true;render();focusScreen();break;
+  }
+});
+$("#boot").addEventListener("keydown",e=>{if(e.key==="Tab")e.preventDefault()});
+
+/* ---------- simulator controls ---------- */
+const SIMKEY="nextbsd-installer-sim-open";
+function setSimOpen(open){$("#simbody").hidden=!open;$("#simtog").setAttribute("aria-expanded",open);try{localStorage.setItem(SIMKEY,open?"1":"0")}catch(e){}}
+$("#simtog").onclick=()=>setSimOpen($("#simbody").hidden);
+(function(){let open=false;try{open=localStorage.getItem(SIMKEY)==="1"}catch(e){}setSimOpen(open)})();
+function syncSim(){
+  $("#sim-fail").value=S.fail;$("#sim-from").checked=S.fromInstalled;$("#sim-small").textContent=S.fromInstalled?"No other disk connected":"No disk big enough";
+  document.querySelectorAll('input[name="sim-speed"]').forEach(r=>r.checked=+r.value===S.speed);
+  $("#simstate").hidden=S.finished;$("#simstate").textContent=S.restarting?"busy":S.mode==="image"?(S.winOpen?S.screen:"closed"):S.finished?"finished":S.mode;
+  $("#sim-skipwrap").hidden=!S.restarting;
+  $("#sim-overwrap").hidden=!S.finished;$("#sim-over-top").hidden=!S.finished;
+}
+$("#sim").addEventListener("change",e=>{
+  const t=e.target;
+  if(t.id==="sim-fail"){
+    S.fail=t.value;
+    if(S.mode==="image"&&S.screen==="disk"){const d=diskById(S.disk);if(!d||!usable(d)){const u=disks().find(usable);S.disk=u?u.id:null}render()}
+  }
+  if(t.name==="sim-speed")S.speed=+t.value;
+  if(t.id==="sim-from"){S.fromInstalled=t.checked;resetTo("welcome");$("#sim-from").focus()}
+});
+function resetTo(kind){
+  cancelFlows();
+  const boot=$("#boot");boot.hidden=true;boot.className="boot";stage("");
+  clearSecrets();
+  const keep={speed:S.speed,fromInstalled:S.fromInstalled,fail:S.fail==="small"&&kind!=="disk"&&kind!=="welcome"?"none":S.fail};
+  Object.assign(S,freshState(),keep);
+  const u=disks().find(usable);S.disk=u?u.id:null;
+  if(kind==="welcome"||kind==="disk")go(kind,{keepFocus:true});
+  else if(kind==="installing")flow(runInstall());
+  else if(kind==="done")go("done",{keepFocus:true});
+  else if(kind==="login")showLogin();
+  if(kind!=="installing"&&kind!=="login")focusScreen();
+  if(kind==="login")$("#l-user").focus({preventScroll:true});
+}
+$("#sim").addEventListener("click",e=>{
+  const r=e.target.closest("[data-reset]");if(r){resetTo(r.dataset.reset);return}
+  if(e.target.closest("#sim-skip")&&S.restarting){cancelFlows();flow(finishBoot())}
+});
+
+/* ---------- dock (installed system only) ---------- */
+(function(){
+  const t=(inner,on)=>'<div class="tile'+(on?' on':'')+'">'+inner+'</div>';
+  const sw='<svg class="ico" width="44" height="44" viewBox="0 0 64 64"><rect x="3" y="3" width="58" height="58" rx="12" fill="#26262d" stroke="#55555f" stroke-width="1.5"/><g transform="translate(14 13) scale(1.5)" fill="none" stroke="#00d4ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1.2 12H6.2z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></g></svg>';
+  const up='<svg class="ico" width="44" height="44" viewBox="0 0 64 64"><rect x="3" y="3" width="58" height="58" rx="12" fill="#26262d" stroke="#55555f" stroke-width="1.5"/><g fill="none" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(14 3.5) scale(1.5)" stroke="#00d4ff" stroke-width="2.1"><path d="M19 12a7 7 0 1 1-2.1-5"/><path d="M17.5 3.5v4h-4"/></g><rect x="13" y="40" width="38" height="13" rx="3" stroke="#f5f5f7" stroke-width="2.2"/><path d="M18.5 46.5h13" stroke="#f5f5f7" stroke-width="2.2"/></g><circle cx="45" cy="46.5" r="1.8" fill="#f5f5f7"/></svg>';
+  $("#dock").innerHTML=t('<img class="ico" src="'+ICON_WORKSPACE+'" width="44" height="44" alt="">',1)+
+    t('<img class="ico" src="'+ICON_TERMINAL+'" width="44" height="44" alt="">')+t(sw)+t(up);
+})();
+$("#reopen-ico").innerHTML=installerIcon(56);
+
+function tick(){const d=new Date();$("#clock").textContent=d.toLocaleDateString(undefined,{weekday:"short"})+" "+fmtTime(d)}
+tick();setInterval(tick,30000);
+render();focusScreen();
+window.__sim={S,resetTo,get phase(){return S.mode==="image"?S.screen:S.mode}};
+})();
+</script>
+</body>
+</html>
