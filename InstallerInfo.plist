@@ -1,0 +1,18 @@
+{
+  ApplicationName = "Installer";
+  ApplicationDescription = "Installs NextBSD on a disk";
+  ApplicationRelease = "27.0";
+  Authors = ("Joseph Maloney <pkgdemonteam@gmail.com>");
+  URL = "License: BSD 2-Clause";
+  Copyright = "Copyright (C) 2026 Joseph Maloney";
+  NSHumanReadableCopyright = "Copyright (C) 2026 Joseph Maloney";
+  NSPrincipalClass = NSApplication;
+  NSIcon = "Installer.png";
+  CFBundleIconFile = "Installer.png";
+  NSExecutable = Installer;
+  CFBundleIdentifier = "org.nextbsd.Installer";
+  CFBundleName = "Installer";
+  CFBundleDisplayName = "Installer";
+  CFBundleShortVersionString = "27.0";
+  CFBundleVersion = "27.0";
+}
