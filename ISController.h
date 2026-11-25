@@ -52,6 +52,9 @@ typedef enum
   int misses;			/* progress calls the helper didn't answer */
   NSTimeInterval copyStart;	/* when the copy started to show progress */
   int copyStartPercent;
+  /* When the install started, and how long it took (nextbsd/nextbsd#426). */
+  NSTimeInterval installStart;
+  NSTimeInterval installSeconds;
 }
 
 @end

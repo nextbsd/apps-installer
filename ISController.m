@@ -612,8 +612,19 @@ ISTitleFont (void)
   ISFlippedView *view = AUTORELEASE ([[ISFlippedView alloc]
                                        initWithFrame:[content bounds]]);
 
+  NSString *took = nil;
+  long secs = (long) round (installSeconds);
+
+  /* How long it took (nextbsd/nextbsd#426), measured here from the start
+     to the helper reporting it done. */
+  if (installSeconds >= 0)
+    took = secs < 60
+      ? [NSString stringWithFormat:@"The installation took %ld second%s.",
+                  secs, secs == 1 ? "" : "s"]
+      : [NSString stringWithFormat:@"The installation took %ld min %ld s.",
+                  secs / 60, secs % 60];
   [view addSubview:[self headerWithTitle:@"NextBSD is installed"
-                                subtitle:nil
+                                subtitle:took
                                    badge:ISBadgeDone
                                    width:ISWindowWidth - 2 * ISMarginX]];
   [view addSubview:[self footWithButtons:
@@ -810,6 +821,8 @@ ISTitleFont (void)
   lastPercent = 0;
   misses = 0;
   copyStart = 0;
+  installStart = [NSDate timeIntervalSinceReferenceDate];
+  installSeconds = -1;
   [self showScreen:ISScreenInstalling];
   progressTimer = [NSTimer scheduledTimerWithTimeInterval:ISProgressSeconds
                                                    target:self
@@ -841,6 +854,7 @@ ISTitleFont (void)
     {
       [progressTimer invalidate];
       progressTimer = nil;
+      installSeconds = [NSDate timeIntervalSinceReferenceDate] - installStart;
       [self showScreen:state == SH_INSTALL_DONE ? ISScreenDone
                                                 : ISScreenFailed];
       return;
