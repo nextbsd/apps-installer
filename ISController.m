@@ -629,11 +629,11 @@ ISTitleFont (void)
                                 subtitle:took
                                    badge:ISBadgeDone
                                    width:ISWindowWidth - 2 * ISMarginX]];
-  /* As nextbsd-installer: restart into it, or turn the computer off. */
+  /* As nextbsd-installer: Restart, then Shut Down, in that order. */
   [view addSubview:[self footWithButtons:
       [NSArray arrayWithObjects:
-        [self button:@"Shut Down" action:@selector (shutDown:) primary:NO],
         [self button:@"Restart" action:@selector (restart:) primary:YES],
+        [self button:@"Shut Down" action:@selector (shutDown:) primary:NO],
         nil]]];
   return view;
 }

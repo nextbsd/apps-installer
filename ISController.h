@@ -10,7 +10,7 @@
  *                    small shown but not choosable; Back, Next
  *   Installing       one progress bar, what it's doing, time remaining;
  *                    or, if it fails, Choose Another Disk and Try Again
- *   Installed        Restart
+ *   Installed        Restart, Shut Down
  *
  * From the install image it installs NextBSD; from an installed system it
  * copies that system onto another disk. The install is SettingsHelper's
