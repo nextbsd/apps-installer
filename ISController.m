@@ -117,6 +117,13 @@ ISTitleFont (void)
 - (NSString *)remainingFor:(int)percent phase:(int)phase;
 @end
 
+/* The disk list's rows, built in the list's own section below. */
+@interface ISController ()
+- (void)buildRows;
+- (NSInteger)chosenRow;
+- (void)reloadRows;
+@end
+
 @implementation ISController
 
 - (void)dealloc
@@ -127,6 +134,7 @@ ISTitleFont (void)
   RELEASE (window);
   RELEASE (probe);
   RELEASE (disks);
+  RELEASE (rows);
   RELEASE (chosen);
   RELEASE (probeTask);
   [super dealloc];
@@ -189,25 +197,99 @@ ISTitleFont (void)
 
 /* ---- the disk list ---- */
 
+/* The rows: each disk, and under the chosen one what's on it, as the text
+   installer lists the partitions under the disk it's on. */
+- (void)buildRows
+{
+  NSMutableArray *list = [NSMutableArray array];
+  NSEnumerator *e = [disks objectEnumerator];
+  ISDisk *disk;
+
+  while ((disk = [e nextObject]) != nil)
+    {
+      [list addObject:disk];
+      if (chosen == nil || ![[disk device] isEqual:chosen])
+        continue;
+      if ([[disk volumes] count] > 0)
+        [list addObjectsFromArray:[disk volumes]];
+      else
+        [list addObject:@"No partitions"];
+    }
+  ASSIGN (rows, list);
+}
+
+/* The chosen disk's row, or -1. */
+- (NSInteger)chosenRow
+{
+  NSUInteger i;
+
+  for (i = 0; i < [rows count]; i++)
+    {
+      id r = [rows objectAtIndex:i];
+
+      if ([r isKindOfClass:[ISDisk class]] && [[r device] isEqual:chosen])
+        return i;
+    }
+  return -1;
+}
+
+/* Rebuild the rows and select the chosen disk again. */
+- (void)reloadRows
+{
+  NSInteger row;
+
+  [self buildRows];
+  reselecting = YES;
+  [table reloadData];
+  row = [self chosenRow];
+  if (row >= 0)
+    [table selectRowIndexes:[NSIndexSet indexSetWithIndex:row]
+       byExtendingSelection:NO];
+  else
+    [table deselectAll:self];
+  reselecting = NO;
+}
+
 - (NSInteger)numberOfRowsInTableView:(NSTableView *)view
 {
-  return [disks count];
+  return [rows count];
 }
 
 - (id)tableView:(NSTableView *)view
     objectValueForTableColumn:(NSTableColumn *)column
                           row:(NSInteger)row
 {
-  ISDisk *disk = [disks objectAtIndex:row];
+  id r = [rows objectAtIndex:row];
   NSString *which = [column identifier];
 
+  if ([r isKindOfClass:[ISDisk class]])
+    {
+      ISDisk *disk = r;
+
+      if ([which isEqual:@"icon"])
+        return ISDiskImage ([disk isUSB], [self isUsable:disk]
+                            ? ISSecondaryColor () : ISDisabledColor ());
+      if ([which isEqual:@"note"])
+        return [self noteForDisk:disk];
+      return [NSString stringWithFormat:@"%@ · %@", [disk model],
+                       [disk sizeString]];
+    }
   if ([which isEqual:@"icon"])
-    return ISDiskImage ([disk isUSB], [self isUsable:disk]
-                        ? ISSecondaryColor () : ISDisabledColor ());
-  if ([which isEqual:@"note"])
-    return [self noteForDisk:disk];
-  return [NSString stringWithFormat:@"%@ · %@", [disk model],
-                   [disk sizeString]];
+    return nil;
+  /* A branch of the tree: the last one closes it. */
+  if ([which isEqual:@"name"])
+    {
+      NSString *branch = (row + 1 < (NSInteger) [rows count]
+                          && ![[rows objectAtIndex:row + 1]
+                                isKindOfClass:[ISDisk class]])
+        ? @"\u251C\u2500 " : @"\u2514\u2500 ";
+
+      if ([r isKindOfClass:[ISVolume class]])
+        return [NSString stringWithFormat:@"%@%@ · %@", branch, [r name],
+                         [r sizeString]];
+      return [branch stringByAppendingString:r];
+    }
+  return [r isKindOfClass:[ISVolume class]] ? [r kindString] : @"";
 }
 
 - (void)tableView:(NSTableView *)view
@@ -215,28 +297,44 @@ ISTitleFont (void)
    forTableColumn:(NSTableColumn *)column
               row:(NSInteger)row
 {
-  ISDisk *disk = [disks objectAtIndex:row];
+  id r = [rows objectAtIndex:row];
 
-  if (![[column identifier] isEqual:@"icon"]
-      && [cell respondsToSelector:@selector (setTextColor:)])
-    [cell setTextColor:([self isUsable:disk] && ![[column identifier]
-                                                    isEqual:@"note"])
+  if (![cell respondsToSelector:@selector (setTextColor:)])
+    return;
+  if ([r isKindOfClass:[ISDisk class]])
+    [cell setTextColor:([self isUsable:r] && ![[column identifier]
+                                                isEqual:@"note"])
           ? [NSColor controlTextColor] : ISDisabledColor ()];
+  else
+    [cell setTextColor:ISSecondaryColor ()];
 }
 
 /* The installer's own disk, the current system's and those too small
-   are shown, but can't be chosen. */
+   are shown, but can't be chosen; nor can the partitions. */
 - (BOOL)tableView:(NSTableView *)view shouldSelectRow:(NSInteger)row
 {
-  return [self isUsable:[disks objectAtIndex:row]];
+  id r = [rows objectAtIndex:row];
+
+  return [r isKindOfClass:[ISDisk class]] && [self isUsable:r];
 }
 
 - (void)tableViewSelectionDidChange:(NSNotification *)note
 {
   NSInteger row = [table selectedRow];
+  id r;
 
-  if (row >= 0 && row < (NSInteger) [disks count])
-    ASSIGN (chosen, [[disks objectAtIndex:row] device]);
+  if (reselecting)
+    return;
+  if (row < 0 || row >= (NSInteger) [rows count])
+    return;
+  r = [rows objectAtIndex:row];
+  if (![r isKindOfClass:[ISDisk class]])
+    return;
+  if (chosen == nil || ![[r device] isEqual:chosen])
+    {
+      ASSIGN (chosen, [r device]);
+      [self reloadRows];
+    }
   [self updateNext];
 }
 
@@ -553,7 +651,7 @@ ISTitleFont (void)
       [NSArray arrayWithObjects:[self button:@"Back"
                                       action:@selector (back:)
                                      primary:NO], next, nil]]];
-  [table reloadData];
+  [self reloadRows];
   [self updateNext];
   return view;
 }
@@ -672,7 +770,6 @@ ISTitleFont (void)
 {
   NSEnumerator *e;
   ISDisk *disk;
-  NSUInteger i;
 
   if (![answer isValid])
     return;
@@ -703,13 +800,7 @@ ISTitleFont (void)
           [self showScreen:ISScreenDisk];
           return;
         }
-      [table reloadData];
-      for (i = 0; i < [disks count]; i++)
-        if ([[[disks objectAtIndex:i] device] isEqual:chosen])
-          [table selectRowIndexes:[NSIndexSet indexSetWithIndex:i]
-             byExtendingSelection:NO];
-      if (chosen == nil)
-        [table deselectAll:self];
+      [self reloadRows];
       [self updateNext];
     }
 }

@@ -10,6 +10,92 @@
 
 static NSString *const ISLibexecDefault = @"/usr/libexec/nextbsd-installer";
 
+@implementation ISVolume
+
+- (id)initWithLabel:(NSString *)label size:(NSString *)size
+               type:(NSString *)type note:(NSString *)note
+{
+  if ((self = [super init]) == nil)
+    return nil;
+  if ([label length] > 0 && ![label isEqual:@"(unlabeled)"])
+    ASSIGN (_label, label);
+  ASSIGN (_size, size);
+  ASSIGN (_type, type);
+  ASSIGN (_note, note);
+  return self;
+}
+
+- (void)dealloc
+{
+  RELEASE (_label);
+  RELEASE (_size);
+  RELEASE (_type);
+  RELEASE (_note);
+  [super dealloc];
+}
+
+- (NSString *)name
+{
+  return _label != nil ? _label : @"Partition";
+}
+
+- (NSString *)sizeString
+{
+  NSUInteger n = [_size length];
+  unichar u = n > 0 ? [_size characterAtIndex:n - 1] : 0;
+  NSString *unit = nil;
+
+  switch (u)
+    {
+    case 'K': unit = @"KB"; break;
+    case 'M': unit = @"MB"; break;
+    case 'G': unit = @"GB"; break;
+    case 'T': unit = @"TB"; break;
+    case 'B': return [NSString stringWithFormat:@"%@ bytes",
+                               [_size substringToIndex:n - 1]];
+    }
+  if (unit == nil)
+    return _size;
+  return [NSString stringWithFormat:@"%@ %@",
+                   [_size substringToIndex:n - 1], unit];
+}
+
+- (NSString *)kindString
+{
+  NSDictionary *names = [NSDictionary dictionaryWithObjectsAndKeys:
+    @"ZFS", @"zfs",
+    @"UFS", @"ufs",
+    @"FAT", @"msdosfs",
+    @"Boot code", @"freebsd-boot",
+    @"Swap", @"freebsd-swap",
+    @"NTFS", @"ntfs",
+    @"Windows recovery", @"ms-recovery",
+    @"Windows reserved", @"ms-reserved",
+    @"Linux", @"linux-data",
+    @"Linux swap", @"linux-swap",
+    @"APFS", @"apple-apfs",
+    @"HFS+", @"apple-hfs",
+    nil];
+  NSString *kind = [names objectForKey:_type];
+  NSRange r;
+
+  if (kind == nil)
+    kind = [_type length] > 0 ? _type : @"Unknown";
+  /* "(zpool: NextBSD)" -> "ZFS (pool NextBSD)" */
+  r = [_note rangeOfString:@"zpool: "];
+  if (r.location != NSNotFound)
+    {
+      NSString *pool = [_note substringFromIndex:NSMaxRange (r)];
+
+      if ([pool hasSuffix:@")"])
+        pool = [pool substringToIndex:[pool length] - 1];
+      return [NSString stringWithFormat:@"%@ (pool %@)", kind, pool];
+    }
+  return kind;
+}
+
+@end
+
 @implementation ISDisk
 
 - (id)initWithDevice:(NSString *)device model:(NSString *)model
@@ -21,6 +107,7 @@ static NSString *const ISLibexecDefault = @"/usr/libexec/nextbsd-installer";
   ASSIGN (_model, model);
   _bytes = bytes;
   _isMedia = isMedia;
+  _volumes = [NSMutableArray new];
   return self;
 }
 
@@ -28,7 +115,18 @@ static NSString *const ISLibexecDefault = @"/usr/libexec/nextbsd-installer";
 {
   RELEASE (_device);
   RELEASE (_model);
+  RELEASE (_volumes);
   [super dealloc];
+}
+
+- (NSArray *)volumes
+{
+  return _volumes;
+}
+
+- (void)addVolume:(ISVolume *)volume
+{
+  [_volumes addObject:volume];
 }
 
 - (NSString *)device
@@ -154,6 +252,24 @@ static NSString *const ISLibexecDefault = @"/usr/libexec/nextbsd-installer";
                                              isEqual:@"0"]];
           [disks addObject:disk];
           RELEASE (disk);
+        }
+      else if ([kind isEqual:@"VOL"] && [f count] >= 5)
+        {
+          /* A partition of the disk named before it. */
+          ISDisk *disk = [disks lastObject];
+          ISVolume *volume;
+
+          if (disk == nil
+              || ![[disk device] isEqual:[f objectAtIndex:1]])
+            continue;
+          volume = [[ISVolume alloc]
+                     initWithLabel:[f objectAtIndex:2]
+                              size:[f objectAtIndex:3]
+                              type:[f objectAtIndex:4]
+                              note:[f count] >= 6 ? [f objectAtIndex:5]
+                                                  : @""];
+          [disk addVolume:volume];
+          RELEASE (volume);
         }
     }
   ASSIGN (probe->_disks, disks);

@@ -12,12 +12,34 @@
 
 #import <Foundation/Foundation.h>
 
+/* A partition on a disk, as the text installer lists it under the disk:
+ * what choosing the disk erases. */
+@interface ISVolume : NSObject
+{
+  NSString *_label;		/* the GPT label, or nil */
+  NSString *_size;		/* gpart's "260M", "238G" */
+  NSString *_type;		/* "zfs", "msdosfs", "freebsd-boot" */
+  NSString *_note;		/* "(zpool: NextBSD)", or "" */
+}
+
+- (id)initWithLabel:(NSString *)label size:(NSString *)size
+               type:(NSString *)type note:(NSString *)note;
+/* "EFI", or "Partition" when it has no label. */
+- (NSString *)name;
+/* "260 MB": gpart's size with the unit spelled out. */
+- (NSString *)sizeString;
+/* What's on it, in words: "ZFS (pool NextBSD)", "FAT", "Boot code". */
+- (NSString *)kindString;
+
+@end
+
 @interface ISDisk : NSObject
 {
   NSString *_device;		/* "nvd0", "da0", "md0" */
   NSString *_model;
   unsigned long long _bytes;
   BOOL _isMedia;
+  NSMutableArray *_volumes;	/* ISVolume, in disk order */
 }
 
 - (NSString *)device;
@@ -30,6 +52,9 @@
 - (BOOL)isUSB;
 /* "1 TB", "32 GB": decimal, as disks are sold. */
 - (NSString *)sizeString;
+/* Its partitions (ISVolume); empty when it has none. */
+- (NSArray *)volumes;
+- (void)addVolume:(ISVolume *)volume;
 
 @end
 
