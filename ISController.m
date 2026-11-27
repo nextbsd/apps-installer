@@ -111,6 +111,8 @@ ISTitleFont (void)
 - (void)next:(id)sender;
 - (void)chooseAnotherDisk:(id)sender;
 - (void)restart:(id)sender;
+- (void)shutDown:(id)sender;
+- (void)finish:(int)status;
 - (void)poll:(NSTimer *)timer;
 - (NSString *)remainingFor:(int)percent phase:(int)phase;
 @end
@@ -627,10 +629,12 @@ ISTitleFont (void)
                                 subtitle:took
                                    badge:ISBadgeDone
                                    width:ISWindowWidth - 2 * ISMarginX]];
+  /* As nextbsd-installer: restart into it, or turn the computer off. */
   [view addSubview:[self footWithButtons:
-      [NSArray arrayWithObject:[self button:@"Restart"
-                                     action:@selector (restart:)
-                                    primary:YES]]]];
+      [NSArray arrayWithObjects:
+        [self button:@"Shut Down" action:@selector (shutDown:) primary:NO],
+        [self button:@"Restart" action:@selector (restart:) primary:YES],
+        nil]]];
   return view;
 }
 
@@ -898,8 +902,17 @@ ISTitleFont (void)
 
 - (void)restart:(id)sender
 {
-  int status = NBHelperInstallRestart ();
+  [self finish:NBHelperInstallRestart ()];
+}
 
+- (void)shutDown:(id)sender
+{
+  [self finish:NBHelperInstallShutdown ()];
+}
+
+/* The helper restarts or turns off the computer; Installer just quits. */
+- (void)finish:(int)status
+{
   if (status != NBAuthorizationOK)
     {
       NSRunAlertPanel (ISTitle, @"%@", @"OK", nil, nil,

@@ -90,5 +90,6 @@ int NBHelperSetSystemLocale (const char *form, const char *locale);
 int NBHelperInstallStart (const char *form, const char *disk, int mode);
 int NBHelperInstallProgress (int *state, int *percent, int *phase);
 int NBHelperInstallRestart (void);
+int NBHelperInstallShutdown (void);
 
 #endif
