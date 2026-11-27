@@ -502,3 +502,17 @@ NBHelperInstallRestart (void)
   NBHelperRelease (port);
   return status;
 }
+
+int
+NBHelperInstallShutdown (void)
+{
+  mach_port_t port = NBHelperPort ();
+  int status = NBHelperUnavailable;
+
+  if (port == MACH_PORT_NULL)
+    return NBHelperUnavailable;
+  if (sh_install_shutdown (port, &status) != KERN_SUCCESS)
+    status = NBHelperUnavailable;
+  NBHelperRelease (port);
+  return status;
+}
