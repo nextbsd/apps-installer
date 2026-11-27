@@ -7,7 +7,8 @@
  *
  *   Welcome          Install
  *   Choose a disk    the disks, the one Installer runs from and those too
- *                    small shown but not choosable; Back, Next
+ *                    small shown but not choosable; under the chosen
+ *                    disk, its partitions (what Install erases); Back, Next
  *   Installing       one progress bar, what it's doing, time remaining;
  *                    or, if it fails, Choose Another Disk and Try Again
  *   Installed        Restart, Shut Down
@@ -41,6 +42,11 @@ typedef enum
   NSArray *disks;		/* what the list shows */
   NSString *chosen;		/* the chosen disk's device, or nil */
   NSTableView *table;
+  /* The list's rows: every disk (ISDisk) and, under the chosen one, its
+     partitions (ISVolume) -- what Install erases -- or, if it has none,
+     a line saying so (NSString). */
+  NSArray *rows;
+  BOOL reselecting;		/* the list is putting the choice back */
   NSTask *probeTask;		/* a re-probe in flight */
   NSTimer *refreshTimer;	/* re-probes while choosing a disk */
 
