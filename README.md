@@ -15,7 +15,7 @@ E46) and built in
 2. **Choose a disk:** everything on the selected disk will be erased.
    Next.
 3. **Installing:** one progress bar.
-4. **Installed:** Restart.
+4. **Installed:** Restart, Shut Down.
 
 No language, network, time zone, keyboard or account screens, no disk
 layout choices, and no technical detail on screen.
